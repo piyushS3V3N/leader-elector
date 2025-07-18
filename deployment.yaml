@@ -16,7 +16,8 @@ spec:
       serviceAccountName: leader-election-sa
       containers:
         - name: leader-elector
-          image: your-registry/leader-elector:latest
+          image: leader-elector:latest
+          imagePullPolicy: Never
           env:
             - name: POD_NAME
               valueFrom:

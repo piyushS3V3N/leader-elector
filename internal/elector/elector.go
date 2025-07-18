@@ -2,7 +2,7 @@ package elector
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/yourorg/leader-elector/internal/config"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -26,13 +26,6 @@ func New(cfg *config.Config, client kubernetes.Interface) *Elector {
 	}
 }
 
-// SetLeadershipLostChannel lets you replace the internal leadershipLost channel with your own.
-func (e *Elector) SetLeadershipLostChannel(ch chan struct{}) {
-	e.leadershipLost = ch
-}
-
-// Run starts the leader election loop.
-// The onStartedLeading callback is called when this instance acquires leadership.
 func (e *Elector) Run(ctx context.Context, onStartedLeading func(ctx context.Context)) error {
 	lock := &resourcelock.LeaseLock{
 		LeaseMeta: v1.ObjectMeta{
@@ -60,10 +53,7 @@ func (e *Elector) Run(ctx context.Context, onStartedLeading func(ctx context.Con
 				select {
 				case e.leadershipLost <- struct{}{}:
 				default:
-					// avoid blocking if no listener is ready
 				}
-				// Optionally exit or handle shutdown here
-				//	os.Exit(1)
 			},
 			OnNewLeader: func(identity string) {
 				if identity != e.cfg.Identity {
@@ -73,7 +63,11 @@ func (e *Elector) Run(ctx context.Context, onStartedLeading func(ctx context.Con
 		},
 	}
 
-	leaderelection.RunOrDie(ctx, leaderelectionCfg)
+	elector, err := leaderelection.NewLeaderElector(leaderelectionCfg)
+	if err != nil {
+		return fmt.Errorf("failed to create leader elector: %w", err)
+	}
+
+	elector.Run(ctx)
 	return nil
 }
-
